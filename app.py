@@ -1,7 +1,7 @@
 """Streamlit chat app for the frontend."""
 import os
-
 import requests
+
 import streamlit as st
 from streamlit_chat import message
 
@@ -23,8 +23,14 @@ api_key = os.getenv("API_KEY")
 headers = {"Content-Type": "application/json", "x-api-key": api_key}
 
 
+def init_game():
+    """Sends the initial prompt to the LLM backend and processes the response."""
+    response = send_prompt()
+    process_response(response)
+
 
 def reset_game():
+    """Resets the session state to the initial state."""
     st.session_state["question_count"] = 0
     st.session_state["messages"] = [
         {"is_user": False, "text": intro_message, "question_number": 0}
@@ -32,7 +38,8 @@ def reset_game():
     st.session_state["prompt_messages"] = [{"role": "user", "content": intial_prompt}]
 
 
-def send_prompt():
+def send_prompt() -> requests.Response:
+    """Sends the prompt to the LLM backend and returns the response."""
     payload = {
         "model": "gpt-3.5-turbo",
         "messages": st.session_state.prompt_messages,
@@ -46,12 +53,12 @@ def send_prompt():
     )
 
 
-def init_game():
-    response = send_prompt()
-    process_response(response)
+def process_response(response: requests.Response):
+    """Takes the request response adds the response message to the session state, increments the question count and updates the UI.
 
-
-def process_response(response):
+    Args:
+        response (requests.Response): LLM response
+    """
     # TODO: For now assuming the response is always 200
     assert (
         response.status_code == 200
@@ -78,7 +85,12 @@ def process_response(response):
     )
 
 
-def process_answer(answer):
+def process_answer(answer: str):
+    """Takes user answer and adds it to the session state to update the UI, sends the prompt to the LLM backend and processes.
+
+    Args:
+        answer (str): The users answer to the LLM's question
+    """
     st.session_state.messages.append(
         {
             "is_user": True,
@@ -86,9 +98,13 @@ def process_answer(answer):
             "question_number": st.session_state["question_count"],
         }
     )
+
+    # For questions where a specific guess was made and response was yes, let LLM know they won.
+    # TODO: This does not work well as the LLM interprets "specfic guess" too broadly
     if st.session_state["question_count"] < 19 and answer == "Yes":
         answer += f". If you made a specific guess, respond with {winning_message}"
 
+    # For questions towards the end of the game, reminds the LLM to make a guess
     if st.session_state["question_count"] == 19:
         answer += ". This is the last question that you can ask before the game is over, make a final guess."
 
@@ -105,6 +121,7 @@ def process_answer(answer):
     process_response(response)
 
 
+# Initialize session state
 if "question_count" not in st.session_state:
     st.session_state["question_count"] = 0
 
@@ -116,10 +133,12 @@ st.session_state.setdefault(
     "prompt_messages", [{"role": "user", "content": intial_prompt}]
 )
 
+# Title for the Chat
 st.title("20 Questions")
 
 chat_placeholder = st.empty()
 
+# Chat UI
 with chat_placeholder.container():
     for message_data in st.session_state.messages:
         message(
@@ -131,7 +150,7 @@ with chat_placeholder.container():
             st.button("Start Game", on_click=init_game)
     st.button("Reset Game", on_click=reset_game)
 
-
+# Answer buttons
 with st.container():
     if message_data["question_number"] != 0 and message_data["question_number"] <= 20:
         st.button("Yes", on_click=process_answer, args=("Yes",))
