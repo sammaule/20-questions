@@ -39,7 +39,11 @@ def reset_game():
 
 
 def send_prompt() -> requests.Response:
-    """Sends the prompt to the LLM backend and returns the response."""
+    """Sends the prompt to the LLM backend and returns the response.
+
+    Returns:
+        requests.Response: response from the LLM backend
+    """
     payload = {
         "model": "gpt-3.5-turbo",
         "messages": st.session_state.prompt_messages,
